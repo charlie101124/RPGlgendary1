@@ -1,557 +1,255 @@
-import base64
-import io
-import math
-import struct
-import wave
-
 import streamlit as st
-import streamlit.components.v1 as components
 
-
-# ---------------------------------------------------------
-# 기본 설정
-# ---------------------------------------------------------
 st.set_page_config(
-    page_title="거지 탈출 RPG",
-    page_icon="💰",
-    layout="centered",
-    initial_sidebar_state="collapsed",
+    page_title="폐쇄된 연구소: 탈출",
+    page_icon="🚨",
+    layout="centered"
 )
 
-st.markdown(
-    """
+st.markdown("""
     <style>
     .stApp {
-        background: linear-gradient(180deg, #f5ead7 0%, #ead6b8 100%);
+        background-color: #0e1117;
+        color: #e0e0e0;
     }
-
-    .game-title {
-        text-align: center;
-        font-size: 42px;
-        font-weight: 900;
-        color: #4d321d;
-        text-shadow: 2px 2px 0px #ffffff;
-        margin-bottom: 0;
+    .stButton>button {
+        width: 100%;
+        border-radius: 8px;
+        height: 3em;
+        background-color: #262730;
+        color: #ffffff;
+        border: 1px solid #41444c;
     }
-
-    .subtitle {
-        text-align: center;
-        color: #765538;
-        margin-top: -8px;
-        margin-bottom: 18px;
-    }
-
-    .stage-card {
-        background: rgba(255,255,255,0.82);
-        border: 3px solid #8d6745;
-        border-radius: 18px;
-        padding: 10px;
-        text-align: center;
-        box-shadow: 0 5px 12px rgba(80,50,20,0.15);
-        margin-bottom: 8px;
-    }
-
-    .money {
-        font-size: 36px;
-        font-weight: 900;
-        color: #9b5b00;
-    }
-
-    .click-area {
-        background: rgba(255,255,255,0.72);
-        border: 3px dashed #a87b4d;
-        border-radius: 22px;
-        padding: 10px;
-        text-align: center;
-        margin: 5px 0 8px 0;
-    }
-
-    .stat-box {
-        background: rgba(255,255,255,0.78);
-        border-radius: 14px;
-        padding: 7px;
-        text-align: center;
-        border: 2px solid #c29b70;
-        margin-bottom: 5px;
-    }
-
-    .stat-number {
-        font-size: 23px;
-        font-weight: 800;
-        color: #55371e;
-    }
-
-    .shop-card {
-        background: rgba(255,255,255,0.8);
-        border-radius: 16px;
-        padding: 9px;
-        border: 2px solid #b98b5d;
-        margin-bottom: 5px;
-    }
-
-    .floating {
-        position: fixed;
-        left: 50%;
-        top: 42%;
-        transform: translate(-50%, -50%);
-        z-index: 99999;
-        pointer-events: none;
-        font-size: 32px;
-        font-weight: 900;
-        color: #20a020;
-        animation: floatUp 0.8s ease-out forwards;
-        text-shadow: 1px 1px white;
-    }
-
-    @keyframes floatUp {
-        0% {
-            opacity: 1;
-            transform: translate(-50%, -10%);
-        }
-        100% {
-            opacity: 0;
-            transform: translate(-50%, -170%);
-        }
-    }
-
-    .click-button {
-        font-size: 28px !important;
-        font-weight: 900 !important;
-        min-height: 90px !important;
-    }
-
-    .clear-box {
-        background: linear-gradient(135deg, #fff7c7, #ffe38b);
-        border: 4px solid #d59b00;
-        border-radius: 22px;
-        padding: 25px;
-        text-align: center;
-        box-shadow: 0 7px 18px rgba(100,70,0,0.2);
-    }
-    .block-container {
-        padding-top: 1rem;
-        padding-bottom: 1rem;
-        max-width: 900px;
-    }
-    div[data-testid="stVerticalBlock"] {
-        gap: 0.35rem;
-    }
-    h1, h2, h3 {
-        margin-top: 0.2rem !important;
-        margin-bottom: 0.3rem !important;
+    .stButton>button:hover {
+        background-color: #ff4b4b;
+        color: #ffffff;
+        border-color: #ff4b4b;
     }
     </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-# ---------------------------------------------------------
-# 효과음: 별도 파일 없이 간단한 클릭음 생성
-# ---------------------------------------------------------
-@st.cache_data
-def make_click_sound():
-    sample_rate = 22050
-    duration = 0.09
-    frequency = 880
-
-    frames = bytearray()
-    total = int(sample_rate * duration)
-
-    for i in range(total):
-        envelope = 1.0 - (i / total)
-        value = int(
-            10000
-            * envelope
-            * math.sin(2 * math.pi * frequency * i / sample_rate)
-        )
-        frames += struct.pack("<h", value)
-
-    buffer = io.BytesIO()
-    with wave.open(buffer, "wb") as wav:
-        wav.setnchannels(1)
-        wav.setsampwidth(2)
-        wav.setframerate(sample_rate)
-        wav.writeframes(frames)
-
-    return base64.b64encode(buffer.getvalue()).decode("utf-8")
-
-
-CLICK_SOUND = make_click_sound()
-
-
-def play_click_effect(amount):
-    """+금액 표시와 클릭 효과음 재생"""
-    components.html(
-        f"""
-        <audio id="clickSound" preload="auto">
-            <source src="data:audio/wav;base64,{CLICK_SOUND}" type="audio/wav">
-        </audio>
-
-        <div class="floating">+{amount:,}원</div>
-
-        <script>
-            const audio = document.getElementById("clickSound");
-            if (audio) {{
-                audio.volume = 0.35;
-                audio.currentTime = 0;
-                const promise = audio.play();
-                if (promise !== undefined) {{
-                    promise.catch(() => {{}});
-                }}
-            }}
-        </script>
-        """,
-        height=1,
-    )
-
-
-
-# ---------------------------------------------------------
-# 게임 데이터
-# ---------------------------------------------------------
-STAGES = [
-    {
-        "name": "시골 탈출",
-        "emoji": "🌾",
-        "description": "시골에서 시작된 인생 역전 프로젝트!",
-        "target": 1_000_000,
-        "background": "시골",
-    },
-    {
-        "name": "길거리 탈출",
-        "emoji": "🚶",
-        "description": "이제 인도에서 돈을 모아 다음 단계로!",
-        "target": 5_000_000,
-        "background": "인도 (Sidewalk)",
-    },
-    {
-        "name": "반지하 탈출",
-        "emoji": "🏚️",
-        "description": "반지하 생활을 벗어나 더 큰 목표를 향해!",
-        "target": 50_000_000,
-        "background": "반지하",
-    },
-    {
-        "name": "1층 탈출",
-        "emoji": "🏠",
-        "description": "드디어 1층! 하지만 목표는 아직 남았다.",
-        "target": 250_000_000,
-        "background": "1층",
-    },
-    {
-        "name": "지방 도시 탈출",
-        "emoji": "🏙️",
-        "description": "최종 목표를 향한 마지막 도전!",
-        "target": 1_250_000_000,
-        "background": "지방 도시",
-    },
-]
-
-BASE_CLICK = 1_000
-START_UPGRADE_PRICE = 1_000
-
-
-# ---------------------------------------------------------
-# 세션 상태
-# ---------------------------------------------------------
-if "money" not in st.session_state:
-    st.session_state.money = 0
-
-if "stage" not in st.session_state:
-    st.session_state.stage = 0
-
-if "click_power" not in st.session_state:
-    st.session_state.click_power = BASE_CLICK
-
-if "click_count" not in st.session_state:
-    st.session_state.click_count = 0
-
-if "extra_clicks" not in st.session_state:
-    st.session_state.extra_clicks = 0
-
-if "power_upgrade_count" not in st.session_state:
-    st.session_state.power_upgrade_count = 0
-
-if "extra_click_upgrade_count" not in st.session_state:
-    st.session_state.extra_click_upgrade_count = 0
-
-if "cleared" not in st.session_state:
-    st.session_state.cleared = [False] * 5
-
-
-def power_upgrade_price():
-    return math.ceil(
-        START_UPGRADE_PRICE * (1.5 ** st.session_state.power_upgrade_count)
-    )
-
-
-def extra_click_upgrade_price():
-    return math.ceil(
-        START_UPGRADE_PRICE * (1.5 ** st.session_state.extra_click_upgrade_count)
-    )
-
-
-def format_money(value):
-    if value >= 100_000_000:
-        return f"{value / 100_000_000:.2f}억원"
-    if value >= 10_000:
-        return f"{value / 10_000:.1f}만원"
-    return f"{value:,}원"
-
-
-def current_click_income():
-    return st.session_state.click_power * (1 + st.session_state.extra_clicks)
-
-
-def check_stage_clear():
-    current_stage = st.session_state.stage
-
-    if current_stage >= len(STAGES):
-        return
-
-    target = STAGES[current_stage]["target"]
-
-    if st.session_state.money >= target:
-        st.session_state.cleared[current_stage] = True
-
-        if current_stage < len(STAGES) - 1:
-            st.session_state.stage += 1
-
-
-# ---------------------------------------------------------
-# 제목
-# ---------------------------------------------------------
-st.markdown('<div class="game-title">💰 거지 탈출 RPG</div>', unsafe_allow_html=True)
-st.markdown(
-    '<div class="subtitle">클릭 한 번으로 인생 역전! 나만의 부자 탈출기를 시작하자.</div>',
-    unsafe_allow_html=True,
-)
-
-
-# ---------------------------------------------------------
-# 게임 클리어 화면
-# ---------------------------------------------------------
-if st.session_state.stage >= 5:
-    st.markdown(
-        """
-        <div class="clear-box">
-            <h1>🎉 모든 스테이지 클리어! 🎉</h1>
-            <h2>🏆 지방 도시 탈출 성공!</h2>
-            <p>당신은 12억 5천만원의 목표를 달성했습니다.</p>
-            <h2>💰 최종 자산: {}</h2>
-        </div>
-        """.format(format_money(st.session_state.money)),
-        unsafe_allow_html=True,
-    )
-
-    st.write("")
-    st.success("축하합니다! 이제 진짜 부자입니다.")
-
-    if st.button("🔄 처음부터 다시 시작", use_container_width=True):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.rerun()
-
-    st.stop()
-
-
-stage = STAGES[st.session_state.stage]
-target = stage["target"]
-progress = min(st.session_state.money / target, 1.0)
-
-
-# ---------------------------------------------------------
-# 스테이지 정보
-# ---------------------------------------------------------
-st.markdown(
-    f"""
-    <div class="stage-card">
-        <div style="font-size:45px">{stage["emoji"]}</div>
-        <h2>STAGE {st.session_state.stage + 1} · {stage["name"]}</h2>
-        <p>{stage["description"]}</p>
-        <p>📍 배경: <b>{stage["background"]}</b></p>
-        <p>🎯 스테이지 목표: <b>{format_money(target)}</b></p>
-        <div class="money">{format_money(st.session_state.money)}</div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-st.progress(progress)
-
-st.caption(
-    f"현재 {format_money(st.session_state.money)} / 목표 {format_money(target)}"
-)
-
-
-# ---------------------------------------------------------
-# 능력치
-# ---------------------------------------------------------
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.markdown(
-        f"""
-        <div class="stat-box">
-            <div>💵 클릭 수익</div>
-            <div class="stat-number">{st.session_state.click_power:,}원</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-with col2:
-    st.markdown(
-        f"""
-        <div class="stat-box">
-            <div>🖱️ 추가 클릭</div>
-            <div class="stat-number">+{st.session_state.extra_clicks}회</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-with col3:
-    st.markdown(
-        f"""
-        <div class="stat-box">
-            <div>🔥 실제 클릭 수익</div>
-            <div class="stat-number">{current_click_income():,}원</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-# ---------------------------------------------------------
-# 게임 캐릭터
-# ---------------------------------------------------------
-CHARACTERS = [
-    ("🧑‍🦱", "초보 거지", "아직 가진 것은 없지만 돈을 벌기 시작했다!"),
-    ("🧑", "거리의 생존자", "조금씩 생활이 나아지고 있다."),
-    ("🧑‍💼", "자립 준비생", "이제 안정적인 생활을 꿈꾼다."),
-    ("👨‍💼", "성공한 시민", "목표를 향해 빠르게 성장 중이다."),
-    ("🕴️", "도시의 부자", "마지막 탈출을 향해 달려간다."),
-]
-
-character_emoji, character_name, character_desc = CHARACTERS[st.session_state.stage]
-
-st.markdown(
-    f"""
-    <div class="stage-card" style="padding:8px; margin-bottom:8px;">
-        <div style="font-size:72px; line-height:1.0;">{character_emoji}</div>
-        <h3 style="margin:2px 0;">{character_name}</h3>
-        <p style="margin:2px 0;">{character_desc}</p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-# ---------------------------------------------------------
-# 메인 클릭
-# ---------------------------------------------------------
-st.markdown(
-    """
-    <div class="click-area">
-        <h2>🪙 돈을 벌어보자!</h2>
-        <p>버튼을 누를 때마다 돈을 획득합니다.</p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-if st.button(
-    f"💰 돈 벌기  +{current_click_income():,}원",
-    use_container_width=True,
-    type="primary",
-):
-    income = current_click_income()
-    st.session_state.money += income
-    st.session_state.click_count += 1
-    check_stage_clear()
-    play_click_effect(income)
-    st.rerun()
-
-
-# ---------------------------------------------------------
-# 상점
-# ---------------------------------------------------------
-st.divider()
-st.header("🛒 상점")
-
-shop1, shop2 = st.columns(2)
-
-with shop1:
-    price = power_upgrade_price()
-
-    st.markdown(
-        f"""
-        <div class="shop-card">
-            <h3>💪 클릭 수익 강화</h3>
-            <p>클릭 1회당 수익을 +1,000원 올립니다.</p>
-            <p>현재: <b>{st.session_state.click_power:,}원/클릭</b></p>
-            <p>다음 가격: <b>{price:,}원</b></p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    if st.button(
-        f"💪 +1,000원 업그레이드 ({price:,}원)",
-        disabled=st.session_state.money < price,
-        use_container_width=True,
-    ):
-        st.session_state.money -= price
-        st.session_state.click_power += 1_000
-        st.session_state.power_upgrade_count += 1
-        st.rerun()
-
-with shop2:
-    price = extra_click_upgrade_price()
-
-    st.markdown(
-        f"""
-        <div class="shop-card">
-            <h3>🖱️ 추가 클릭</h3>
-            <p>한 번 누를 때 클릭 1회만큼의 수익을 추가합니다.</p>
-            <p>현재: <b>기본 클릭 × {1 + st.session_state.extra_clicks}</b></p>
-            <p>다음 가격: <b>{price:,}원</b></p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    if st.button(
-        f"🖱️ 클릭 +1회 취급 ({price:,}원)",
-        disabled=st.session_state.money < price,
-        use_container_width=True,
-    ):
-        st.session_state.money -= price
-        st.session_state.extra_clicks += 1
-        st.session_state.extra_click_upgrade_count += 1
-        st.rerun()
-
-
-# ---------------------------------------------------------
-# 게임 정보
-# ---------------------------------------------------------
-with st.expander("📖 게임 정보"):
-    st.write("• 이 게임은 클릭커 방식의 간단한 RPG 게임입니다.")
-    st.write("• 총 5개의 스테이지가 있습니다.")
-    st.write("• 돈을 모아 각 스테이지의 목표 금액에 도달하면 다음 스테이지로 이동합니다.")
-    st.write("• 상점에서 클릭 수익과 추가 클릭 능력을 강화할 수 있습니다.")
-    st.write("• 업그레이드 가격은 구매할 때마다 50%씩 증가합니다.")
-    st.write("• 게임의 기본 콘셉트는 '가난한 상태에서 시작해 돈을 벌며 탈출한다'는 클릭커 RPG입니다.")
-    st.caption("※ 특정 게임의 이미지·음원·코드를 그대로 복제하지 않고 독자적인 게임 요소로 구성했습니다.")
-
-
-# ---------------------------------------------------------
-# 리셋
-# ---------------------------------------------------------
+""", unsafe_allow_html=True)
+
+if "scene" not in st.session_state:
+    st.session_state.scene = "start"
+    st.session_state.inventory = []
+    st.session_state.stamina = 100
+
+def reset_game():
+    st.session_state.scene = "start"
+    st.session_state.inventory = []
+    st.session_state.stamina = 100
+
+def change_scene(next_scene):
+    st.session_state.scene = next_scene
+
+st.title("🚨 폐쇄된 연구소: 탈출")
+st.caption("당신의 선택에 따라 생존 여부와 엔딩이 결정됩니다.")
 st.divider()
 
-if st.button("🔄 게임 초기화", use_container_width=True):
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
-    st.rerun()
+with st.sidebar:
+    st.header("📊 현재 상태")
+    st.progress(st.session_state.stamina / 100, text=f"체력: {st.session_state.stamina}%")
+    
+    st.subheader("🎒 소지품")
+    if st.session_state.inventory:
+        for item in st.session_state.inventory:
+            st.write(f"- {item}")
+    else:
+        st.write("비어 있음")
+        
+    st.divider()
+    if st.button("🔄 게임 처음부터 다시 시작"):
+        reset_game()
+        st.rerun()
+
+current = st.session_state.scene
+
+if current == "start":
+    st.subheader("📍 1. 정적 속의 깨어남")
+    st.write(
+        "눈을 뜨니 차가운 바닥입니다. 붉은 비상등만 켜진 채 경고음이 울리고 있습니다.\n\n"
+        "당신은 기억을 잃은 채 심해 연구소의 지하 3층 통제실에서 깨어났습니다. "
+        "멀리서 무언가 철문을 긁는 기괴한 소리가 들려옵니다."
+    )
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🔍 책상 위 반짝이는 보안 카드키를 줍는다"):
+            if "보안 카드키" not in st.session_state.inventory:
+                st.session_state.inventory.append("보안 카드키")
+            change_scene("take_card")
+            st.rerun()
+    with col2:
+        if st.button("🚪 소리가 나기 전에 복도로 곧장 달려나간다"):
+            change_scene("hallway_run")
+            st.rerun()
+
+elif current == "take_card":
+    st.subheader("📍 2. 카드키 획득")
+    st.write(
+        "보안 카드키를 주머니에 넣었습니다. 그 순간 복도의 철문이 커다란 소리와 함께 일그러집니다.\n\n"
+        "시간이 없습니다. 통제실 뒤쪽 비상 통로로 가시겠습니까, 아니면 환기구를 통해 이동하시겠습니까?"
+    )
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🏃‍♂️ 비상 통로 문을 열고 달린다"):
+            change_scene("emergency_door")
+            st.rerun()
+    with col2:
+        if st.button("🪜 환기구 덮개를 열고 들어간다"):
+            st.session_state.stamina -= 20
+            change_scene("vent")
+            st.rerun()
+
+elif current == "hallway_run":
+    st.subheader("📍 2. 복도로의 뛰어듦")
+    st.write(
+        "카드키를 챙기지 않고 복도로 뛰어나갔습니다. 복도 끝 보안 게이트가 닫혀 있습니다.\n\n"
+        "게이트를 열려면 보안 카드키가 필요합니다! 뒤에서는 정체불명의 그림자가 빠르게 접근해 옵니다."
+    )
+    
+    if st.button("🚪 게이트를 힘으로 부수려고 시도한다"):
+        change_scene("ending_caught")
+        st.rerun()
+    if st.button("🔙 다시 통제실로 들어가 카드키를 찾는다"):
+        st.session_state.stamina -= 40
+        change_scene("take_card")
+        st.rerun()
+
+elif current == "emergency_door":
+    st.subheader("📍 3. 비상 통로")
+    st.write(
+        "카드키로 비상 통로 문을 닫고 잠급니다. 쾅 하는 소리와 함께 문 건너편에서 무언가 부딪히는 소리가 납니다.\n\n"
+        "앞에는 [중앙 엘리베이터]와 [잠수정 선착장 표지판]이 보입니다."
+    )
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🛗 엘리베이터를 탄다"):
+            change_scene("elevator")
+            st.rerun()
+    with col2:
+        if st.button("⚓ 잠수정 선착장으로 향한다"):
+            change_scene("sub_dock")
+            st.rerun()
+
+elif current == "vent":
+    st.subheader("📍 3. 좁은 환기구")
+    st.write(
+        "환기구 안은 좁고 매캐한 연기로 가득합니다. 체력이 소모되었습니다.\n\n"
+        "기어가다 보니 갈림길이 나옵니다. 무전기 소리가 들리는 오른쪽과 비상등이 보이는 왼쪽 중 어디로 가시겠습니까?"
+    )
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📻 오른쪽 (무전기 소리)"):
+            if "무전기" not in st.session_state.inventory:
+                st.session_state.inventory.append("무전기")
+            change_scene("radio_room")
+            st.rerun()
+    with col2:
+        if st.button("💡 왼쪽 (비상등)"):
+            change_scene("sub_dock")
+            st.rerun()
+
+elif current == "radio_room":
+    st.subheader("📍 4. 통신실")
+    st.write(
+        "환기구를 빠져나오니 통신실입니다. 무전기에서 구조대의 목소리가 흘러나옵니다.\n\n"
+        "\"여기는 구조대, 심해 연구소의 생존자가 있다면 옥상 헬리패드로 이동하십시오!\""
+    )
+    
+    if st.button("🚁 옥상 헬리패드로 이동한다"):
+        change_scene("helipad")
+        st.rerun()
+    if st.button("⚓ 안전하게 아래쪽 잠수정 선착장으로 이동한다"):
+        change_scene("sub_dock")
+        st.rerun()
+
+elif current == "elevator":
+    st.subheader("📍 4. 작동 중 멈춘 엘리베이터")
+    st.write(
+        "엘리베이터 버튼을 누르자 위로 올라가기 시작합니다... 하지만 1층에서 콰광 소리와 함께 정전되며 갇히고 맙니다.\n\n"
+        "천장 해치가 약간 열려 있습니다."
+    )
+    if st.button("🧗‍♂️ 해치를 열고 로프를 타 올라간다"):
+        change_scene("helipad")
+        st.rerun()
+    if st.button("⏳ 안에서 문을 강제로 열 때까지 기다린다"):
+        change_scene("ending_trapped")
+        st.rerun()
+
+elif current == "sub_dock":
+    st.subheader("📍 5. 잠수정 선착장")
+    st.write(
+        "구명 잠수정에 도달했습니다! 하지만 잠수정을 작동하려면 암호 잠금장치를 해제하거나 비상 전원을 켜야 합니다."
+    )
+    
+    if "보안 카드키" in st.session_state.inventory:
+        if st.button("💳 보안 카드키로 암호를 우회해 잠수정을 출항시킨다"):
+            change_scene("ending_sub_escape")
+            st.rerun()
+    else:
+        st.write("⚠️ 보안 카드키가 없어 자동 출항이 불가능합니다.")
+        
+    if st.button("⚡ 수동 비상 전원 레버를 당긴다"):
+        change_scene("ending_explosion")
+        st.rerun()
+
+elif current == "helipad":
+    st.subheader("📍 5. 폭풍우 치는 옥상 헬리패드")
+    st.write(
+        "옥상으로 나오자 강한 바람과 함께 헬리콥터가 접근합니다!\n\n"
+        "하지만 추적해 온 괴물도 옥상 문을 부수고 따라 나왔습니다!"
+    )
+    
+    if "무전기" in st.session_state.inventory:
+        if st.button("📻 무전기로 위치를 알리고 헬기에 먼저 탑승한다"):
+            change_scene("ending_hero_escape")
+            st.rerun()
+            
+    if st.button("🏃‍♂️ 괴물을 유인하고 헬기 줄사다리로 뛰어내린다"):
+        change_scene("ending_sacrificial")
+        st.rerun()
+
+elif current == "ending_caught":
+    st.error("💀 [ENDING 1: 포식자의 먹잇감]")
+    st.write("닫힌 게이트 앞에서 괴물에게 붙잡혔습니다. 아무도 당신의 비명을 듣지 못했습니다.")
+    if st.button("🎮 다시 도전하기"):
+        reset_game()
+        st.rerun()
+
+elif current == "ending_trapped":
+    st.error("💀 [ENDING 2: 영원한 정적]")
+    st.write("엘리베이터 안에서 구조를 기다렸지만, 심해의 수압을 견디지 못한 연구소가 침수되었습니다.")
+    if st.button("🎮 다시 도전하기"):
+        reset_game()
+        st.rerun()
+
+elif current == "ending_explosion":
+    st.warning("💥 [ENDING 3: 화염 속의 탈출 실패]")
+    st.write("비상 전원 레버를 당기자 가스 누출로 인해 대폭발이 일어났습니다.")
+    if st.button("🎮 다시 도전하기"):
+        reset_game()
+        st.rerun()
+
+elif current == "ending_sub_escape":
+    st.success("🎉 [ENDING 4: 심해 침묵 탈출 (True Ending A)]")
+    st.write("카드키로 성공적으로 잠수정을 작동시켜 수면 위로 무사히 탈출했습니다. 연구소의 비밀을 세상에 밝힐 수 있게 되었습니다!")
+    if st.button("🎮 다시 도전하기"):
+        reset_game()
+        st.rerun()
+
+elif current == "ending_hero_escape":
+    st.success("🎉 [ENDING 5: 하늘에서의 구출 (True Ending B)]")
+    st.write("무전기를 통해 정확한 타이밍에 헬기에 올라탔습니다. 옥상 위 괴물을 뒤로한 채 하늘로 탈출에 성공했습니다!")
+    if st.button("🎮 다시 도전하기"):
+        reset_game()
+        st.rerun()
+
+elif current == "ending_sacrificial":
+    st.info("☠️ [ENDING 6: 아슬아슬한 추락]")
+    st.write("헬기 사다리를 잡았으나, 괴물이 발목을 잡아 끌어내렸습니다. 함께 바다로 추락했습니다.")
+    if st.button("🎮 다시 도전하기"):
+        reset_game()
+        st.rerun()
