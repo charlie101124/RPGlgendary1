@@ -1,123 +1,412 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="LAST CLASS", page_icon="🌘", layout="wide")
+# 페이지 설정
+st.set_page_config(
+    page_title="심야의 학교 탈출",
+    page_icon="👻",
+    layout="centered"
+)
+
+# 다크 모드 강제 스타일 적용
 st.markdown("""
-<style>
-[data-testid="stApp"]{background:#08090d;color:#e8e9ed}
-.block-container{max-width:1500px;padding-top:.7rem}
-header{visibility:hidden}
-</style>
+    <style>
+    .stApp {
+        background-color: #0a0a0c;
+        color: #e0e0e0;
+    }
+    h1 {
+        color: #ff3b3b;
+        text-align: center;
+        font-family: 'Courier New', Courier, monospace;
+        text-shadow: 0 0 10px #ff0000;
+    }
+    .info-box {
+        background-color: #16161a;
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid #333;
+        margin-bottom: 15px;
+        font-size: 14px;
+    }
+    </style>
 """, unsafe_allow_html=True)
-st.title("LAST CLASS")
-st.caption("THE LAST NIGHT AT SCHOOL  |  3D SURVIVAL HORROR")
-st.markdown("**WASD** 이동 · **마우스** 시점 · **E** 조사 · **Shift** 달리기 · **F** 손전등")
-game = r"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-*{box-sizing:border-box}body{margin:0;background:#030509;overflow:hidden;color:#eee;font-family:Arial}
-#hud{position:absolute;z-index:2;top:16px;left:18px;font-size:13px;line-height:1.7;text-shadow:0 2px 8px #000}
-#objective{position:absolute;right:18px;top:16px;z-index:2;text-align:right;font-size:13px;text-shadow:0 2px 8px #000}
-#prompt{position:absolute;bottom:13%;left:0;width:100%;z-index:2;text-align:center;font-size:16px;text-shadow:0 2px 8px #000}
-#cross{position:absolute;left:50%;top:50%;z-index:2;transform:translate(-50%,-50%);opacity:.65}
-#veil{position:absolute;z-index:5;inset:0;background:radial-gradient(ellipse,#10141b 0%,#020306 85%);display:flex;align-items:center;justify-content:center;text-align:center}
-#panel{max-width:680px;padding:28px 36px;border:1px solid #34343b;background:rgba(5,6,10,.92)}
-h1{letter-spacing:9px;font-size:46px;margin:0 0 12px;color:#e8e8eb}button{background:#8f1725;color:#fff;border:0;padding:14px 28px;font-size:15px;letter-spacing:2px;cursor:pointer}
-</style></head><body>
-<div id="hud">LAST CLASS<br><span id="lamp">손전등: ON</span><br><span id="found">기록: 0 / 5</span></div>
-<div id="objective">목표: 학교 기록 5개를 찾으세요</div><div id="cross">+</div><div id="prompt">주변을 조사하라.</div>
-<div id="veil"><div id="panel"><h1>LAST CLASS</h1><p>학교에 남겨진 기록 5개를 찾아<br>잠긴 출구를 열어라.</p><p>WASD 이동 · 마우스 시점 · E 조사 · Shift 달리기 · F 손전등</p><button id="start">ENTER SCHOOL</button><p style="color:#777;font-size:12px;margin-top:20px">헤드폰과 어두운 환경에서 플레이하면 몰입감이 높아질 수 있습니다.</p></div></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+
+st.title("👻 심야의 학교 탈출")
+
+st.markdown("""
+<div class="info-box">
+    <b>[게임 방법]</b><br>
+    • <b>이동:</b> 방향키 (↑, ↓, ←, →) 또는 W, A, S, D<br>
+    • <b>목표:</b> 어두운 학교 복도를 탐색해 <b>열쇠 3개(🔑)</b>를 모두 찾은 뒤, <b>출구(🚪)</b>로 탈출하세요.<br>
+    • <b>주의:</b> 붉은 눈의 귀신(👻)이 순찰 중입니다. 가까이 다가가면 심장 소리가 빨라지며 추격해 옵니다!
+</div>
+""", unsafe_allow_html=True)
+
+# HTML5 Canvas + JavaScript 기반 실시간 게임 엔진
+game_html = """
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        background-color: #0a0a0c;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-family: sans-serif;
+        color: white;
+        user-select: none;
+    }
+    #hud {
+        width: 600px;
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 15px;
+        background: #141418;
+        border: 1px solid #2a2a30;
+        border-bottom: none;
+        box-sizing: border-box;
+        font-size: 16px;
+        font-weight: bold;
+    }
+    canvas {
+        border: 2px solid #333;
+        background-color: #050505;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.9);
+    }
+    #controls {
+        margin-top: 15px;
+        display: grid;
+        grid-template-columns: repeat(3, 55px);
+        grid-template-rows: repeat(2, 55px);
+        gap: 8px;
+    }
+    .btn {
+        background: #1f1f24;
+        color: #ddd;
+        border: 1px solid #444;
+        border-radius: 8px;
+        font-size: 20px;
+        cursor: pointer;
+    }
+    .btn:active {
+        background: #ff3b3b;
+        color: white;
+    }
+    #restart-btn {
+        margin-top: 15px;
+        padding: 10px 24px;
+        font-size: 16px;
+        background: #8b0000;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        display: none;
+    }
+    #restart-btn:hover {
+        background: #b30000;
+    }
+</style>
+</head>
+<body>
+
+<div id="hud">
+    <div>🔑 열쇠: <span id="key-count">0</span> / 3</div>
+    <div id="status-msg" style="color: #aaa;">열쇠를 찾아 교실을 뒤지세요...</div>
+</div>
+
+<canvas id="gameCanvas" width="600" height="450"></canvas>
+
+<button id="restart-btn" onclick="initGame()">다시 도전하기</button>
+
+<!-- 모바일/마우스 지원용 가상 패드 -->
+<div id="controls">
+    <div></div>
+    <button class="btn" onmousedown="setKey('ArrowUp', true)" onmouseup="setKey('ArrowUp', false)" ontouchstart="setKey('ArrowUp', true)" ontouchend="setKey('ArrowUp', false)">▲</button>
+    <div></div>
+    <button class="btn" onmousedown="setKey('ArrowLeft', true)" onmouseup="setKey('ArrowLeft', false)" ontouchstart="setKey('ArrowLeft', true)" ontouchend="setKey('ArrowLeft', false)">◀</button>
+    <button class="btn" onmousedown="setKey('ArrowDown', true)" onmouseup="setKey('ArrowDown', false)" ontouchstart="setKey('ArrowDown', true)" ontouchend="setKey('ArrowDown', false)">▼</button>
+    <button class="btn" onmousedown="setKey('ArrowRight', true)" onmouseup="setKey('ArrowRight', false)" ontouchstart="setKey('ArrowRight', true)" ontouchend="setKey('ArrowRight', false)">▶</button>
+</div>
+
 <script>
-(()=> {
-const scene=new THREE.Scene();scene.background=new THREE.Color(0x030509);scene.fog=new THREE.FogExp2(0x030509,.045);
-const camera=new THREE.PerspectiveCamera(76,innerWidth/innerHeight,.1,80);
-camera.position.set(0,1.65,12);
-const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.appendChild(renderer.domElement);
-const ambient=new THREE.HemisphereLight(0x48536a,0x08080c,.38);scene.add(ambient);
-const playerLight=new THREE.SpotLight(0xdde6ff,60,22,Math.PI/7,.45,1.5);playerLight.position.copy(camera.position);playerLight.target.position.set(0,0,-1);camera.add(playerLight);camera.add(playerLight.target);scene.add(camera);
-const redLight=new THREE.PointLight(0x641020,1.2,8);redLight.position.set(0,2,-23);scene.add(redLight);
-const M=(c,r=.8)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
-const wall=M(0x252a32), floor=M(0x292a2d), trim=M(0x393c42), desk=M(0x3a3027), black=M(0x08090b);
-function mesh(g,m,x,y,z,cast=true){let o=new THREE.Mesh(g,m);o.position.set(x,y,z);o.castShadow=cast;o.receiveShadow=true;scene.add(o);return o}
-function box(x,y,z,w,h,d,m){return mesh(new THREE.BoxGeometry(w,h,d),m,x,y,z)}
-// corridor + adjoining room illusion, boundaries
-box(0,-.12,0,38,.24,50,floor);box(0,3,-25,38,6,.35,wall);box(0,3,25,38,6,.35,wall);box(-19,3,0,.35,6,50,wall);box(19,3,0,.35,6,50,wall);
-box(-7,3,0,.3,6,42,wall);box(7,3,0,.3,6,42,wall);
-// hallway doors/ classroom windows
-for(let z=-22;z<=20;z+=6){
- for(let side of [-1,1]){
-  let x=side*7.02;
-  box(x,1.45,z, .1,2.9,2.3,desk);
-  box(x-side*.1,3.4,z, .12,1.15,2.5,trim);
- }
- box(0,5.9,z,2.3,.12,.3,trim);
-}
-// furniture rows and lockers
-for(let z=-18;z<19;z+=4){
- for(let x of [-15,-12,12,15]){
-  box(x,1.25,z,2.5,2.5,.25,trim);
-  box(x,2.55,z,.2,.12,.35,desk);
- }
-}
-for(let z=-17;z<18;z+=5){
- for(let x of [-3.8,3.8]){
-  box(x,.85,z,1.5,.12,1.1,desk);box(x,1.35,z-.25,1.3,.75,.1,desk);
- }
-}
-for(let x=-16;x<=16;x+=4){let lamp=box(x,5.85,0,1.8,.1,.5,trim);let light=new THREE.PointLight(0x8897b7,.35,9);light.position.set(x,5.2,0);scene.add(light);}
-// room signs, environmental detail
-function sign(text,x,z){let c=document.createElement('canvas');c.width=512;c.height=128;let ctx=c.getContext('2d');ctx.fillStyle='#10141b';ctx.fillRect(0,0,512,128);ctx.strokeStyle='#535963';ctx.strokeRect(4,4,504,120);ctx.fillStyle='#d5d8de';ctx.font='bold 40px sans-serif';ctx.textAlign='center';ctx.fillText(text,256,78);let t=new THREE.CanvasTexture(c);let o=mesh(new THREE.PlaneGeometry(3,0.75),new THREE.MeshBasicMaterial({map:t}),x,3.9,z,false);o.rotation.y=Math.PI;}
-sign('3F  CLASSROOM',0,-21);sign('SCIENCE ROOM',-10,-5);sign('LIBRARY',10,7);
-// notes/record markers with emissive glow
-const notes=[
- {p:[-14,1,-16],t:'기록 01 — 야간 경비일지: 복도 끝에서 종소리가 들려도 확인하지 말 것.'},
- {p:[14,1,-8],t:'기록 02 — 학생들은 빈 교실의 창문에 누군가 서 있다고 말했다.'},
- {p:[-14,1,2],t:'기록 03 — 방송실은 폐쇄되었다. 그런데 매일 0시 방송이 송출된다.'},
- {p:[14,1,12],t:'기록 04 — 교무실 열쇠가 사라졌다. 분명 책상 서랍에 넣었는데.'},
- {p:[0,1,18],t:'기록 05 — 마지막 메모: 문이 열리면 뒤돌아보지 마.'}
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const TILE = 30;
+const ROWS = 15;
+const COLS = 20;
+
+// 1: 학교 벽(교실/복도), 0: 이동 가능 복도, 2: 출구
+const initialMap = [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+    [1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,1,0,1],
+    [1,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,1,0,1],
+    [1,0,1,1,1,1,1,0,1,1,1,0,1,0,1,1,0,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,1],
+    [1,1,1,0,1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,1],
+    [1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,2],
+    [1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,1,0,1],
+    [1,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,1,0,1],
+    [1,0,1,0,1,1,1,0,1,0,1,0,1,0,1,1,0,1,0,1],
+    [1,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,1,1,0,1,0,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
 ];
-let noteMeshes=[];let got=new Set();
-notes.forEach((n,i)=>{let group=new THREE.Group();group.position.set(...n.p);scene.add(group);let paper=new THREE.Mesh(new THREE.BoxGeometry(.5,.07,.38),M(0xb9a981));group.add(paper);let glow=new THREE.PointLight(0x8b9ac0,.5,2.5);glow.position.y=.4;group.add(glow);group.userData.i=i;noteMeshes.push(group);});
-const exitDoor=box(0,1.5,-24,3.2,3,.35,M(0x48171c));exitDoor.material.emissive=new THREE.Color(0x24070a);
-const exitLabel=sign('EXIT',0,-23.4);
-// creature design: stylized disturbing lanky shadow, avoid graphic gore
-let monster=new THREE.Group();scene.add(monster);monster.visible=false;
-const mskin=M(0x47434a), mcloth=M(0x0b0c10), faceMat=new THREE.MeshBasicMaterial({color:0x020203}), eye=new THREE.MeshBasicMaterial({color:0xa51d31});
-function c(g,m,x,y,z){let o=new THREE.Mesh(g,m);o.position.set(x,y,z);o.castShadow=true;monster.add(o);return o}
-c(new THREE.SphereGeometry(.42,18,16),mskin,0,2.6,0).scale.set(.68,1.18,.62);
-c(new THREE.CylinderGeometry(.12,.2,1.65,10),mcloth,0,1.35,0);
-let arm1=c(new THREE.CylinderGeometry(.06,.12,1.9,8),mcloth,-.58,1.4,0);arm1.rotation.z=.14;
-let arm2=c(new THREE.CylinderGeometry(.06,.12,1.9,8),mcloth,.58,1.4,0);arm2.rotation.z=-.14;
-let leg1=c(new THREE.CylinderGeometry(.07,.11,2.15,8),mcloth,-.2,-.35,0);
-let leg2=c(new THREE.CylinderGeometry(.07,.11,2.15,8),mcloth,.2,-.35,0);
-let mask=c(new THREE.SphereGeometry(.22,14,12),faceMat,0,2.58,.3);mask.scale.set(.9,1.15,.4);
-c(new THREE.SphereGeometry(.045,8,8),eye,-.1,2.62,.48);c(new THREE.SphereGeometry(.045,8,8),eye,.1,2.62,.48);
-let hair=c(new THREE.ConeGeometry(.4,1.3,9),mcloth,0,3.35,-.02);hair.rotation.x=.2;
-// audio generated in-browser for ambient drone + heartbeat-ish pulse
-let audio=null,osc=null,gain=null;
-function audioStart(){try{audio=new (window.AudioContext||window.webkitAudioContext)();osc=audio.createOscillator();gain=audio.createGain();osc.type='sawtooth';osc.frequency.value=48;gain.gain.value=.025;osc.connect(gain);gain.connect(audio.destination);osc.start();}catch(e){}}
-let state={started:false,yaw:0,pitch:0,keys:{},light:true,scare:0,monsterDelay:0};
-const prompt=document.getElementById('prompt'),found=document.getElementById('found'),lamp=document.getElementById('lamp'),objective=document.getElementById('objective');
-function start(){document.getElementById('veil').style.display='none';renderer.domElement.requestPointerLock();state.started=true;audioStart();}
-document.getElementById('start').onclick=start;
-document.addEventListener('pointerlockchange',()=>{});
-document.addEventListener('mousemove',e=>{if(document.pointerLockElement===renderer.domElement){state.yaw-=e.movementX*.002;state.pitch-=e.movementY*.002;state.pitch=Math.max(-1.25,Math.min(1.25,state.pitch));camera.rotation.set(state.pitch,state.yaw,0,'YXZ');}});
-document.addEventListener('keydown',e=>{state.keys[e.code]=true;if(e.code==='KeyE')interact();if(e.code==='KeyF'){state.light=!state.light;playerLight.visible=state.light;lamp.textContent='손전등: '+(state.light?'ON':'OFF');}});
-document.addEventListener('keyup',e=>state.keys[e.code]=false);
-renderer.domElement.addEventListener('click',()=>{if(state.started&&document.pointerLockElement!==renderer.domElement)renderer.domElement.requestPointerLock();});
-function interact(){let nearest=null,dist=2.6;noteMeshes.forEach(o=>{if(got.has(o.userData.i))return;let d=camera.position.distanceTo(o.position);if(d<dist){dist=d;nearest=o;}});if(nearest){let i=nearest.userData.i;got.add(i);nearest.visible=false;found.textContent='기록: '+got.size+' / 5';prompt.textContent=notes[i].t;objective.textContent=got.size===5?'목표: 출구로 돌아가세요':'목표: 기록 '+(5-got.size)+'개 더 찾기';if(got.size===5)prompt.textContent='모든 기록을 찾았다. 출구로 돌아가라.';return;}if(camera.position.distanceTo(exitDoor.position)<3.8){if(got.size===5){end(true);}else prompt.textContent='출구가 잠겨 있다. 기록을 모두 찾아야 한다.';}}
-function end(success){document.exitPointerLock?.();document.getElementById('veil').style.display='flex';document.getElementById('panel').innerHTML='<h1>'+(success?'ESCAPED':'')+'</h1><p>'+ (success?'학교를 빠져나왔다. 그런데 복도 끝에서 종소리가 다시 울렸다.':'')+'</p><button onclick="location.reload()">RESTART</button>';}
-const clock=new THREE.Clock();
-function update(){let dt=Math.min(clock.getDelta(),.04);if(state.started&&document.pointerLockElement===renderer.domElement){
-let sp=state.keys.ShiftLeft?4.7:2.9;let v=new THREE.Vector3();if(state.keys.KeyW)v.z-=1;if(state.keys.KeyS)v.z+=1;if(state.keys.KeyA)v.x-=1;if(state.keys.KeyD)v.x+=1;v.normalize().applyAxisAngle(new THREE.Vector3(0,1,0),state.yaw);camera.position.addScaledVector(v,sp*dt);camera.position.x=Math.max(-18,Math.min(18,camera.position.x));camera.position.z=Math.max(-23,Math.min(23,camera.position.z));camera.position.y=1.65;
-if(!monster.visible&&got.size>=1&&clock.elapsedTime>15){monster.visible=true;monster.position.set(0,0,-15);prompt.textContent='你听到了脚步声…';}
-if(monster.visible){let delta=camera.position.clone().sub(monster.position);delta.y=0;let distance=delta.length();if(distance>2.7){delta.normalize();monster.position.addScaledVector(delta,dt*(got.size>=3?1.05:.38));}monster.lookAt(camera.position.x,0,camera.position.z);if(distance<5&&Math.random()<.008)prompt.textContent='복도에서 무언가 움직였다.';if(distance<1.6){prompt.textContent='시야가 흔들린다…';state.scare+=dt;if(state.scare>1.8){camera.position.z+=1.3;state.scare=0;}}}
-if(audio&&gain){gain.gain.value=state.light?.018:.03;osc.frequency.value=state.light?45:58;}
-}}
-function loop(){requestAnimationFrame(loop);update();renderer.render(scene,camera);}loop();
-window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
-})();
-</script></body></html>"""
-components.html(game, height=760, scrolling=False)
-st.markdown("### 플레이")
-st.markdown("기록 5개를 찾은 뒤 출구로 돌아가세요. 3D 화면 내부를 클릭하면 마우스 시점 제어가 활성화됩니다.")
-st.caption("브라우저에서 Three.js CDN을 불러오므로 배포 환경에서 인터넷 연결이 필요합니다.")
+
+let player, ghost, keys, gameState, collectedKeys;
+const inputKeys = {};
+
+// 사운드 효과 (Web Audio API - 별도 파일 불필요)
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playTone(freq, type, duration, vol=0.1) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+}
+
+function initGame() {
+    player = { x: 1.5 * TILE, y: 1.5 * TILE, radius: 9, speed: 2.3 };
+    ghost = { x: 17.5 * TILE, y: 12.5 * TILE, radius: 11, speed: 1.45, dirX: -1, dirY: 0 };
+    keys = [
+        { x: 1.5 * TILE, y: 13.5 * TILE, collected: false },
+        { x: 17.5 * TILE, y: 1.5 * TILE, collected: false },
+        { x: 9.5 * TILE, y: 9.5 * TILE, collected: false }
+    ];
+    collectedKeys = 0;
+    gameState = "PLAYING";
+    document.getElementById("key-count").innerText = "0";
+    document.getElementById("status-msg").innerText = "열쇠를 찾아 교실을 뒤지세요...";
+    document.getElementById("status-msg").style.color = "#aaa";
+    document.getElementById("restart-btn").style.display = "none";
+}
+
+function setKey(code, state) {
+    inputKeys[code] = state;
+}
+
+window.addEventListener("keydown", (e) => {
+    inputKeys[e.code] = true;
+    if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(e.code) > -1) {
+        e.preventDefault();
+    }
+});
+window.addEventListener("keyup", (e) => {
+    inputKeys[e.code] = false;
+});
+
+function canMove(nx, ny, radius) {
+    const points = [
+        { x: nx - radius, y: ny - radius },
+        { x: nx + radius, y: ny - radius },
+        { x: nx - radius, y: ny + radius },
+        { x: nx + radius, y: ny + radius }
+    ];
+    for (let p of points) {
+        let c = Math.floor(p.x / TILE);
+        let r = Math.floor(p.y / TILE);
+        if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return false;
+        let tile = initialMap[r][c];
+        if (tile === 1) return false;
+        if (tile === 2 && collectedKeys < 3) return false; // 열쇠 3개 미만이면 출구 잠김
+    }
+    return true;
+}
+
+let heartbeatTimer = 0;
+
+function update() {
+    if (gameState !== "PLAYING") return;
+
+    // 1. 플레이어 이동
+    let dx = 0, dy = 0;
+    if (inputKeys["ArrowUp"] || inputKeys["KeyW"]) dy -= player.speed;
+    if (inputKeys["ArrowDown"] || inputKeys["KeyS"]) dy += player.speed;
+    if (inputKeys["ArrowLeft"] || inputKeys["KeyA"]) dx -= player.speed;
+    if (inputKeys["ArrowRight"] || inputKeys["KeyD"]) dx += player.speed;
+
+    if (canMove(player.x + dx, player.y, player.radius)) player.x += dx;
+    if (canMove(player.x, player.y + dy, player.radius)) player.y += dy;
+
+    // 2. 열쇠 획득 체크
+    for (let k of keys) {
+        if (!k.collected) {
+            let dist = Math.hypot(player.x - k.x, player.y - k.y);
+            if (dist < player.radius + 10) {
+                k.collected = true;
+                collectedKeys++;
+                document.getElementById("key-count").innerText = collectedKeys;
+                playTone(880, 'sine', 0.25, 0.15);
+                if (collectedKeys === 3) {
+                    document.getElementById("status-msg").innerText = "모든 열쇠를 찾았다! 오른쪽 출구(🚪)로 달려가세요!";
+                    document.getElementById("status-msg").style.color = "#4ade80";
+                }
+            }
+        }
+    }
+
+    // 3. 출구 탈출 체크
+    let pc = Math.floor(player.x / TILE);
+    let pr = Math.floor(player.y / TILE);
+    if (initialMap[pr][pc] === 2 && collectedKeys === 3) {
+        gameState = "WIN";
+        playTone(523.25, 'triangle', 0.5, 0.2);
+        document.getElementById("restart-btn").style.display = "inline-block";
+    }
+
+    // 4. 귀신 AI (거리 가까우면 추적, 멀면 배회)
+    let distToPlayer = Math.hypot(player.x - ghost.x, player.y - ghost.y);
+    
+    // 심장박동 효과음
+    if (distToPlayer < 160) {
+        heartbeatTimer++;
+        let interval = Math.max(15, Math.floor(distToPlayer / 3));
+        if (heartbeatTimer >= interval) {
+            playTone(65, 'sine', 0.12, 0.25);
+            heartbeatTimer = 0;
+        }
+    }
+
+    if (distToPlayer < 180) {
+        // 플레이어 추적
+        let angle = Math.atan2(player.y - ghost.y, player.x - ghost.x);
+        let vx = Math.cos(angle) * (ghost.speed * 1.15);
+        let vy = Math.sin(angle) * (ghost.speed * 1.15);
+        if (canMove(ghost.x + vx, ghost.y, ghost.radius)) ghost.x += vx;
+        if (canMove(ghost.x, ghost.y + vy, ghost.radius)) ghost.y += vy;
+    } else {
+        // 복도 순찰
+        let nx = ghost.x + ghost.dirX * ghost.speed;
+        let ny = ghost.y + ghost.dirY * ghost.speed;
+        if (canMove(nx, ny, ghost.radius) && Math.random() > 0.02) {
+            ghost.x = nx;
+            ghost.y = ny;
+        } else {
+            const dirs = [[1,0], [-1,0], [0,1], [0,-1]];
+            let pick = dirs[Math.floor(Math.random() * dirs.length)];
+            ghost.dirX = pick[0];
+            ghost.dirY = pick[1];
+        }
+    }
+
+    // 5. 귀신 충돌 체크 (게임 오버)
+    if (distToPlayer < player.radius + ghost.radius - 2) {
+        gameState = "LOSE";
+        playTone(110, 'sawtooth', 0.8, 0.3);
+        document.getElementById("restart-btn").style.display = "inline-block";
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 1. 맵 그리기 (교실 벽 & 복도 바닥)
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            let x = c * TILE;
+            let y = r * TILE;
+            if (initialMap[r][c] === 1) {
+                ctx.fillStyle = "#1e2028";
+                ctx.fillRect(x, y, TILE, TILE);
+                ctx.strokeStyle = "#111";
+                ctx.strokeRect(x, y, TILE, TILE);
+            } else if (initialMap[r][c] === 2) {
+                ctx.fillStyle = collectedKeys === 3 ? "#15803d" : "#7f1d1d";
+                ctx.fillRect(x, y, TILE, TILE);
+                ctx.fillStyle = "white";
+                ctx.font = "16px sans-serif";
+                ctx.fillText("🚪", x + 5, y + 21);
+            } else {
+                ctx.fillStyle = "#0e0e12";
+                ctx.fillRect(x, y, TILE, TILE);
+            }
+        }
+    }
+
+    // 2. 열쇠 그리기
+    ctx.font = "16px sans-serif";
+    for (let k of keys) {
+        if (!k.collected) {
+            ctx.fillText("🔑", k.x - 9, k.y + 6);
+        }
+    }
+
+    // 3. 플레이어 그리기
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+    ctx.fillStyle = "#38bdf8";
+    ctx.fill();
+
+    // 4. 귀신 그리기
+    ctx.font = "20px sans-serif";
+    ctx.fillText("👻", ghost.x - 11, ghost.y + 7);
+
+    // 5. 손전등 어둠 효과 (플레이어 주변만 밝게)
+    let grad = ctx.createRadialGradient(player.x, player.y, 25, player.x, player.y, 125);
+    grad.addColorStop(0, "rgba(0, 0, 0, 0)");
+    grad.addColorStop(0.7, "rgba(0, 0, 0, 0.88)");
+    grad.addColorStop(1, "rgba(0, 0, 0, 0.98)");
+
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 귀신의 붉은 눈은 어둠 속에서도 희미하게 보임
+    let dist = Math.hypot(player.x - ghost.x, player.y - ghost.y);
+    if (dist < 220) {
+        ctx.fillStyle = "rgba(255, 0, 0, 0.85)";
+        ctx.beginPath();
+        ctx.arc(ghost.x - 4, ghost.y - 2, 2.2, 0, Math.PI * 2);
+        ctx.arc(ghost.x + 4, ghost.y - 2, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // 6. 게임 종료 오버레이
+    if (gameState === "LOSE") {
+        ctx.fillStyle = "rgba(120, 0, 0, 0.8)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#ff4d4d";
+        ctx.font = "bold 36px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("귀신에게 잡혔습니다...", canvas.width / 2, canvas.height / 2);
+        ctx.textAlign = "start";
+    } else if (gameState === "WIN") {
+        ctx.fillStyle = "rgba(0, 40, 20, 0.85)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#4ade80";
+        ctx.font = "bold 32px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("무사히 학교를 탈출했습니다!", canvas.width / 2, canvas.height / 2);
+        ctx.textAlign = "start";
+    }
+}
+
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+initGame();
+loop();
+</script>
+
+</body>
+</html>
+"""
+
+# 스트림릿에 게임 렌더링
+components.html(game_html, height=620)
